@@ -27,7 +27,7 @@ var currentLocation = {
  * Switch channels name in the right app bar
  * @param channelObject
  */
-function switchChannel(channelObject) {
+function switchChannel(channelObject, channelElement) {
     // Log the channel switch
     console.log("Tuning in to channel", channelObject);
 
@@ -52,10 +52,13 @@ function switchChannel(channelObject) {
     /* highlight the selected #channel.
        This is inefficient (jQuery has to search all channel list items), but we'll change it later on */
     $('#channels li').removeClass('selected');
-    $('#channels li:contains(' + channelObject.name + ')').addClass('selected');
+    //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    $(channelElement).addClass('selected');
 
     /* store selected channel in global variable */
     currentChannel = channelObject;
+    $('#messages').empty();
+    showMessages(channelObject);
 }
 
 /* liking a channel on #click */
@@ -106,6 +109,7 @@ function loadEmojis() {
     $('#emojis').empty();
     for (emoji in emojis) {
         $('#emojis').append(emojis[emoji] + " ");
+
     }
 }
 
@@ -126,6 +130,21 @@ function Message(text) {
     this.text = text;
     // own message
     this.own = true;
+    this.messageElement = null;
+    this.update = function(){
+        var expiresIn = Math.round((this.expiresOn - Date.now()) / 1000 / 60 * 10) / 10;
+        $('.message :contains(' + this.createdOn.toLocaleString() + ')').find('em').html( expiresIn + ' min. left');
+        if(expiresIn < 5){
+            $('.message :contains(' + this.createdOn.toLocaleString() + ')').find('em').css('color','#3F51B5');
+        }
+        if(expiresIn < 0){
+            $('.message :contains(' + this.createdOn.toLocaleString() + ')').parent().remove();
+            currentChannel.messageCount = currentChannel.messageCount - 1;
+            listChannels();
+            return -1;
+        }
+        return 0;
+    };
 }
 
 function sendMessage() {
@@ -157,6 +176,9 @@ function sendMessage() {
 
     // clear the #message input
     $('#message').val('');
+    $('#chat-bar span').html('0/140');
+    currentChannel.messageCount = currentChannel.messageCount + 1;
+    listChannels();
 }
 
 /**
@@ -168,19 +190,22 @@ function createMessageElement(messageObject) {
     // Calculating the expiresIn-time from the expiresOn-property
     var expiresIn = Math.round((messageObject.expiresOn - Date.now()) / 1000 / 60);
 
-    // Creating a message-element
-    return '<div class="message'+
-        //this dynamically adds #own to the #message, based on the
-        //ternary operator. We need () in order not to disrupt the return.
-        (messageObject.own ? ' own' : '') +
-        '">' +
-        '<h3><a href="http://w3w.co/' + messageObject.createdBy + '" target="_blank">'+
-        '<strong>' + messageObject.createdBy + '</strong></a>' +
-        messageObject.createdOn.toLocaleString() +
-        '<em>' + expiresIn + ' min. left</em></h3>' +
-        '<p>' + messageObject.text + '</p>' +
-        '<button class="accent">+5 min.</button>' +
-        '</div>';
+    //Creating message element
+    var message = $('<div>').addClass('message');
+    messageObject.own ? message.addClass('own') : '';
+
+    var content = '<h3><a href="http://w3w.co/' + messageObject.createdBy + '" target="_blank">'+
+    '<strong>' + messageObject.createdBy + '</strong></a>' +
+    messageObject.createdOn.toLocaleString() +
+    '<em>' + expiresIn + ' min. left</em></h3>' +
+    '<p>' + messageObject.text + '</p>' +
+    '<button class="accent" onclick="extendTime(this);">+5 min.</button>';
+
+    message.html(content);
+    messageObject.messageElement = message;
+
+    return messageObject.messageElement;
+
 }
 
 /* #10 Three #compare functions to #sort channels */
@@ -217,6 +242,9 @@ function compareFavorites(channelA, channelB) {
 function listChannels(criterion) {
     // #10 #sorting: #sort channels#array by the criterion #parameter
     channels.sort(criterion);
+    $.each(channels,function(i,v){
+        this.messageCount = this.messages.length;
+    });
 
     // #10 #sorting #duplicate: empty list
     $('#channels ul').empty();
@@ -225,6 +253,7 @@ function listChannels(criterion) {
     for (i = 0; i < channels.length; i++) {
         $('#channels ul').append(createChannelElement(channels[i]));
     };
+    $('#channels li:contains(' + currentChannel.name + ')').addClass('selected');
 }
 
 /**
@@ -309,7 +338,10 @@ function createChannelElement(channelObject) {
      */
 
     // create a channel
-    var channel = $('<li>').text(channelObject.name);
+    var channel = $('<li>').text(channelObject.name).click(function(){
+        switchChannel(channelObject,this);
+    });;
+    
 
     // create and append channel meta
     var meta = $('<span>').addClass('channel-meta').appendTo(channel);
@@ -354,4 +386,34 @@ function abortCreationMode() {
     $('#app-bar-create').removeClass('show');
     $('#button-create').hide();
     $('#button-send').show();
+}
+
+
+function showMessages(channelObject){
+    $.each(channelObject.messages, function(i,v){
+        $('#messages').append(createMessageElement(this));
+    });
+}
+
+function countInputLength(){
+    if(event.keyCode === 13){
+        sendMessage();
+    } else{
+        var length = $('#message').val().length;
+        $('#chat-bar span').html(length + '/140');
+    }
+}
+
+function extendTime(child){
+    var parentMessage = $(child).parent()
+    
+    $.each(currentChannel.messages, function(i,v){
+        if(parentMessage.html() === this.messageElement.html()){
+            this.expiresOn.setMinutes(this.expiresOn.getMinutes() + 5);
+            this.update();
+        }
+    });
+    
+
+
 }

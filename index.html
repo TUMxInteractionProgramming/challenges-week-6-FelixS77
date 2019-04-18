@@ -29,7 +29,21 @@
 
 <!-- render all channels when the body has loaded -->
 <!-- #10 #sorting: append all channels in new #sort order when the body has #load ed ; #10 #emojis added more #suitable-->
-<body onload="listChannels(compareNew); loadEmojis()">
+<body>
+<script>$(document).ready(function () { listChannels(compareNew); 
+                                        loadEmojis(); 
+                                        console.log("App is initialized");
+                                        setInterval(function(){
+                                            console.log('Updating message elements...');
+                                            console.log(currentChannel.messages.length);
+                                            $.each(currentChannel.messages,function(i,v){
+                                                var del = this.update();
+                                                if(del == -1){
+                                                    currentChannel.messages.splice(i,1);
+                                                }
+                                            })
+                                        }, 10000) });
+</script>
 
 <!-- channel area -->
 <!-- #9 #shdw #elv: channels view goes 16dp high, like a nav drawer -->
@@ -153,9 +167,10 @@
         </button>
         <!-- #9 #shdw #elv: menu goes 8dp high -->
         <div id="emojis" class="shadow--8dp">&#x1F601; &#x1F602; &#x1F603; &#x1F604; &#x1F605; &#x1F606; &#x1F607;</div>
-        <input type="text" placeholder="Message..." maxlength="140" id="message">
+        <input type="text" placeholder="Message..." maxlength="140" id="message" onkeyup="countInputLength()" onenter>
         <!-- #9 #btns #snd now accented -->
         <!-- #10 #new: id added to be able to address it -->
+        <span>0/140</span>
         <button id="button-send" class="accent" onclick="sendMessage()"><i class="fas fa-arrow-right"></i></button>
         <!-- #10: #new #styled button for creating a channel -->
         <button id="button-create" class="accent" onclick="createChannel();">CREATE</button>
